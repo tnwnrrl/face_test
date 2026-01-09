@@ -38,9 +38,7 @@ dependencies:
   # Camera and face detection
   camera: ^0.11.1
   google_mlkit_face_detection: ^0.13.1
-  path_provider: ^2.1.5
   shared_preferences: ^2.3.5
-  image: ^4.3.0
 
 dev_dependencies:
   flutter_test:

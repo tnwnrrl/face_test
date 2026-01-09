@@ -164,6 +164,17 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  Future<void> _resetFace() async {
+    await FaceService.clearRegisteredFace();
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AuthScreen(isRegistered: false),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _cameraController?.dispose();
@@ -261,17 +272,7 @@ class _AuthScreenState extends State<AuthScreen> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 20),
                 child: TextButton(
-                  onPressed: () async {
-                    await FaceService.clearRegisteredFace();
-                    if (mounted) {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AuthScreen(isRegistered: false),
-                        ),
-                      );
-                    }
-                  },
+                  onPressed: _resetFace,
                   child: const Text(
                     '얼굴 다시 등록하기',
                     style: TextStyle(color: Colors.red),

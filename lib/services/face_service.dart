@@ -4,7 +4,6 @@ import 'dart:math';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:image/image.dart' as img;
 
 class FaceService {
   static const String _faceDataKey = 'registered_face_data';
