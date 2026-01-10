@@ -8,6 +8,8 @@ import 'package:image/image.dart' as img;
 
 class FaceService {
   static const String _faceDataKey = 'registered_face_data';
+  static const String _thresholdKey = 'face_similarity_threshold';
+  static const double _defaultThreshold = 0.6;
 
   static final FaceDetector _faceDetector = FaceDetector(
     options: FaceDetectorOptions(
@@ -164,6 +166,19 @@ class FaceService {
     await prefs.remove(_faceDataKey);
   }
 
+  // 임계값 가져오기
+  static Future<double> getThreshold() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble(_thresholdKey) ?? _defaultThreshold;
+  }
+
+  // 임계값 저장
+  static Future<void> setThreshold(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_thresholdKey, value);
+    debugPrint('임계값 설정: $value');
+  }
+
   // 얼굴 비교
   static Future<bool> compareFace(Face currentFace) async {
     final prefs = await SharedPreferences.getInstance();
@@ -175,9 +190,10 @@ class FaceService {
     final currentFeatures = _extractFaceFeatures(currentFace);
 
     final similarity = _calculateSimilarity(registeredFeatures, currentFeatures);
-    debugPrint('유사도: $similarity');
+    final threshold = prefs.getDouble(_thresholdKey) ?? _defaultThreshold;
+    debugPrint('유사도: $similarity, 임계값: $threshold');
 
-    return similarity > 0.6;
+    return similarity > threshold;
   }
 
   // 얼굴 특징 추출

@@ -54,7 +54,7 @@ class _MainScreenState extends State<MainScreen> {
         ),
         MediaItem.asset(
           id: 'media_4',
-          assetPath: 'assets/media/video_01.mp4',
+          assetPath: 'assets/media/113244.mp4',
           type: MediaType.video,
         ),
       ],

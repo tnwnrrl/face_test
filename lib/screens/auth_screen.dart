@@ -244,7 +244,7 @@ class _AuthScreenState extends State<AuthScreen> {
             onPressed: () {
               if (passwordController.text == '8009') {
                 Navigator.pop(context);
-                _enterRegistrationMode();
+                _showAdminMenu();
               } else {
                 Navigator.pop(context);
                 _showAdminOnlyWarning();
@@ -253,6 +253,143 @@ class _AuthScreenState extends State<AuthScreen> {
             child: const Text('확인'),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 관리자 메뉴 표시
+  void _showAdminMenu() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.settings, color: AppColors.primary),
+            SizedBox(width: AppSpacing.sm),
+            Text('관리자 설정', style: AppTextStyles.heading3),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.face, color: AppColors.accent),
+              title: const Text('얼굴 재등록', style: AppTextStyles.body),
+              subtitle: const Text('새로운 얼굴로 등록합니다', style: AppTextStyles.caption),
+              onTap: () {
+                Navigator.pop(context);
+                _enterRegistrationMode();
+              },
+            ),
+            const Divider(color: AppColors.surfaceLight),
+            ListTile(
+              leading: const Icon(Icons.tune, color: AppColors.primary),
+              title: const Text('인식 민감도', style: AppTextStyles.body),
+              subtitle: const Text('얼굴 인식 임계값을 조절합니다', style: AppTextStyles.caption),
+              onTap: () {
+                Navigator.pop(context);
+                _showThresholdDialog();
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('닫기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 임계값 설정 다이얼로그
+  void _showThresholdDialog() async {
+    double currentThreshold = await FaceService.getThreshold();
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.tune, color: AppColors.primary),
+              SizedBox(width: AppSpacing.sm),
+              Text('인식 민감도', style: AppTextStyles.heading3),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '값이 높을수록 엄격하게 인식합니다.\n낮을수록 쉽게 통과합니다.',
+                style: AppTextStyles.bodySecondary,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                '${(currentThreshold * 100).toInt()}%',
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Slider(
+                value: currentThreshold,
+                min: 0.3,
+                max: 0.9,
+                divisions: 12,
+                activeColor: AppColors.primary,
+                inactiveColor: AppColors.surfaceLight,
+                onChanged: (value) {
+                  setDialogState(() {
+                    currentThreshold = value;
+                  });
+                },
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('쉬움', style: AppTextStyles.caption),
+                  Text('엄격', style: AppTextStyles.caption),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () async {
+                await FaceService.setThreshold(currentThreshold);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(
+                      content: Text('민감도가 ${(currentThreshold * 100).toInt()}%로 설정되었습니다'),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                }
+              },
+              child: const Text('저장'),
+            ),
+          ],
+        ),
       ),
     );
   }
