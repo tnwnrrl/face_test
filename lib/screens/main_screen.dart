@@ -102,31 +102,14 @@ class _MainScreenState extends State<MainScreen> {
                 ),
               ),
 
-              // 하단 버튼 영역
+              // 하단 완료 버튼
               Padding(
                 padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Row(
-                  children: [
-                    // 임무기록 버튼
-                    Expanded(
-                      child: OutlineButton(
-                        text: '임무기록',
-                        icon: Icons.photo_library,
-                        onPressed: () => _showMediaListSheet(),
-                        isFullWidth: true,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    // 완료 버튼
-                    Expanded(
-                      child: GradientButton(
-                        text: '완료',
-                        icon: Icons.check,
-                        onPressed: () => _showCompleteDialog(),
-                        isFullWidth: true,
-                      ),
-                    ),
-                  ],
+                child: GradientButton(
+                  text: '완료',
+                  icon: Icons.check,
+                  onPressed: () => _showCompleteDialog(),
+                  isFullWidth: true,
                 ),
               ),
             ],
@@ -375,22 +358,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // 미디어 목록 바텀시트
-  void _showMediaListSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => _MediaListSheet(
-        media: _currentMission.media,
-        onMediaTap: (index) {
-          Navigator.pop(context);
-          _openMediaViewer(index);
-        },
-      ),
-    );
-  }
-
   // 미디어 뷰어 열기
   void _openMediaViewer(int index) {
     Navigator.push(
@@ -477,155 +444,4 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-  }
-}
-
-/// 미디어 목록 바텀시트
-class _MediaListSheet extends StatelessWidget {
-  final List<MediaItem> media;
-  final Function(int) onMediaTap;
-
-  const _MediaListSheet({
-    required this.media,
-    required this.onMediaTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.6,
-      ),
-      margin: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 핸들
-          Container(
-            margin: const EdgeInsets.only(top: AppSpacing.md),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceLight,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-
-          // 헤더
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.photo_library,
-                  color: AppColors.primary,
-                  size: 24,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                const Text('임무 기록', style: AppTextStyles.heading3),
-                const Spacer(),
-                StatusBadge.info('${media.length}개'),
-              ],
-            ),
-          ),
-
-          // 미디어 그리드
-          Flexible(
-            child: media.isEmpty
-                ? _buildEmptyState()
-                : GridView.builder(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.lg,
-                      0,
-                      AppSpacing.lg,
-                      AppSpacing.lg,
-                    ),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: AppSpacing.sm,
-                      mainAxisSpacing: AppSpacing.sm,
-                    ),
-                    itemCount: media.length,
-                    itemBuilder: (context, index) {
-                      return _buildMediaGridItem(media[index], index);
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.photo_library_outlined,
-            size: 64,
-            color: AppColors.textMuted.withValues(alpha: 0.5),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            '기록된 미디어가 없습니다',
-            style: AppTextStyles.bodySecondary,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMediaGridItem(MediaItem item, int index) {
-    // 이미지 프로바이더 결정
-    ImageProvider? imageProvider;
-    if (item.type == MediaType.image && item.isAsset) {
-      imageProvider = AssetImage(item.url);
-    } else if (item.thumbnail != null) {
-      imageProvider = NetworkImage(item.thumbnail!);
-    }
-
-    return GestureDetector(
-      onTap: () => onMediaTap(index),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surfaceLight,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          image: imageProvider != null
-              ? DecorationImage(
-                  image: imageProvider,
-                  fit: BoxFit.cover,
-                )
-              : null,
-        ),
-        child: Stack(
-          children: [
-            // 비디오 아이콘
-            if (item.type == MediaType.video)
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                ),
-                child: const Center(
-                  child: Icon(
-                    Icons.play_circle_filled,
-                    color: AppColors.textPrimary,
-                    size: 36,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 }
