@@ -15,12 +15,14 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  late List<Mission> _missions;
+  // 현재 진행중인 임무 (단일)
+  late Mission _currentMission;
 
   @override
   void initState() {
     super.initState();
-    _missions = Mission.getDummyList(count: 5);
+    // 더미 데이터: 현재 진행중인 임무 1개
+    _currentMission = Mission.dummy(index: 1);
   }
 
   @override
@@ -44,7 +46,7 @@ class _MainScreenState extends State<MainScreen> {
 
               const SizedBox(height: AppSpacing.lg),
 
-              // 임무 목록 타이틀
+              // 현재 임무 타이틀
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
                 child: Row(
@@ -55,26 +57,48 @@ class _MainScreenState extends State<MainScreen> {
                       size: 20,
                     ),
                     const SizedBox(width: AppSpacing.sm),
-                    const Text('임무 목록', style: AppTextStyles.heading3),
+                    const Text('현재 임무', style: AppTextStyles.heading3),
                     const Spacer(),
-                    StatusBadge.info('${_missions.length}건'),
+                    _buildStatusBadge(_currentMission.status),
                   ],
                 ),
               ),
 
               const SizedBox(height: AppSpacing.md),
 
-              // 임무 목록
+              // 현재 임무 카드 (확장)
               Expanded(
-                child: ListView.builder(
+                child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                  itemCount: _missions.length,
-                  itemBuilder: (context, index) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                      child: _buildMissionCard(_missions[index]),
-                    );
-                  },
+                  child: _buildCurrentMissionCard(),
+                ),
+              ),
+
+              // 하단 버튼 영역
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Row(
+                  children: [
+                    // 임무기록 버튼
+                    Expanded(
+                      child: OutlineButton(
+                        text: '임무기록',
+                        icon: Icons.photo_library,
+                        onPressed: () => _showMediaListSheet(),
+                        isFullWidth: true,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    // 완료 버튼
+                    Expanded(
+                      child: GradientButton(
+                        text: '완료',
+                        icon: Icons.check,
+                        onPressed: () => _showCompleteDialog(),
+                        isFullWidth: true,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -205,121 +229,170 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildMissionCard(Mission mission) {
+  Widget _buildCurrentMissionCard() {
     return GradientCard(
-      onTap: () => _showMissionDetail(mission),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 상단: 상태 + 제목
-          Row(
-            children: [
-              _buildStatusBadge(mission.status),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  mission.title,
-                  style: AppTextStyles.heading3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-
-          // 설명
-          Text(
-            mission.description,
-            style: AppTextStyles.bodySecondary,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // 고객 정보
-          Row(
-            children: [
-              const Icon(
-                Icons.person_outline,
-                size: 16,
-                color: AppColors.textMuted,
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              Text(
-                mission.clientName,
-                style: AppTextStyles.caption,
-              ),
-              const SizedBox(width: AppSpacing.md),
-              const Icon(
-                Icons.location_on_outlined,
-                size: 16,
-                color: AppColors.textMuted,
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: Text(
-                  mission.address,
-                  style: AppTextStyles.caption,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-
-          // 미디어 썸네일
-          if (mission.hasMedia) ...[
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 제목
+            Text(
+              _currentMission.title,
+              style: AppTextStyles.heading2,
+            ),
             const SizedBox(height: AppSpacing.md),
-            SizedBox(
-              height: 60,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: mission.media.length,
-                itemBuilder: (context, index) {
-                  final media = mission.media[index];
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      right: index < mission.media.length - 1
-                          ? AppSpacing.sm
-                          : 0,
+
+            // 설명
+            Text(
+              _currentMission.description,
+              style: AppTextStyles.body,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+
+            // 구분선
+            Divider(color: AppColors.surfaceLight.withValues(alpha: 0.5)),
+            const SizedBox(height: AppSpacing.md),
+
+            // 고객 정보
+            _buildInfoRow(Icons.person, '고객', _currentMission.clientName),
+            if (_currentMission.clientPhone != null)
+              _buildInfoRow(Icons.phone, '연락처', _currentMission.clientPhone!),
+            _buildInfoRow(Icons.location_on, '주소', _currentMission.address),
+            _buildInfoRow(
+              Icons.calendar_today,
+              '생성일',
+              _formatDate(_currentMission.createdAt),
+            ),
+
+            // 메모
+            if (_currentMission.notes != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(
+                    color: AppColors.accent.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.note,
+                      size: 18,
+                      color: AppColors.accent,
                     ),
-                    child: GestureDetector(
-                      onTap: () => _openMediaViewer(mission.media, index),
-                      child: Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceLight,
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                          image: media.thumbnail != null
-                              ? DecorationImage(
-                                  image: NetworkImage(media.thumbnail!),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        _currentMission.notes!,
+                        style: const TextStyle(
+                          color: AppColors.accent,
+                          fontSize: 14,
                         ),
-                        child: media.type == MediaType.video
-                            ? Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.4),
-                                  borderRadius:
-                                      BorderRadius.circular(AppRadius.sm),
-                                ),
-                                child: const Icon(
-                                  Icons.play_circle_outline,
-                                  color: AppColors.textPrimary,
-                                  size: 28,
-                                ),
-                              )
-                            : null,
                       ),
                     ),
-                  );
-                },
+                  ],
+                ),
               ),
-            ),
+            ],
+
+            // 미디어 미리보기 (있는 경우)
+            if (_currentMission.hasMedia) ...[
+              const SizedBox(height: AppSpacing.lg),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.photo_library,
+                    size: 18,
+                    color: AppColors.textMuted,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    '첨부 파일 ${_currentMission.media.length}개',
+                    style: AppTextStyles.caption,
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              SizedBox(
+                height: 80,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _currentMission.media.length,
+                  itemBuilder: (context, index) {
+                    final media = _currentMission.media[index];
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        right: index < _currentMission.media.length - 1
+                            ? AppSpacing.sm
+                            : 0,
+                      ),
+                      child: GestureDetector(
+                        onTap: () => _openMediaViewer(index),
+                        child: _buildMediaThumbnail(media),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: AppColors.textMuted),
+          const SizedBox(width: AppSpacing.sm),
+          SizedBox(
+            width: 60,
+            child: Text(label, style: AppTextStyles.caption),
+          ),
+          Expanded(
+            child: Text(value, style: AppTextStyles.body),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMediaThumbnail(MediaItem media) {
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        image: media.thumbnail != null
+            ? DecorationImage(
+                image: NetworkImage(media.thumbnail!),
+                fit: BoxFit.cover,
+              )
+            : null,
+      ),
+      child: media.type == MediaType.video
+          ? Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: const Icon(
+                Icons.play_circle_outline,
+                color: AppColors.textPrimary,
+                size: 32,
+              ),
+            )
+          : null,
     );
   }
 
@@ -336,24 +409,78 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  void _openMediaViewer(List<MediaItem> media, int initialIndex) {
+  // 미디어 목록 바텀시트
+  void _showMediaListSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _MediaListSheet(
+        media: _currentMission.media,
+        onMediaTap: (index) {
+          Navigator.pop(context);
+          _openMediaViewer(index);
+        },
+      ),
+    );
+  }
+
+  // 미디어 뷰어 열기
+  void _openMediaViewer(int index) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => MediaViewerScreen(
-          media: media,
-          initialIndex: initialIndex,
+          media: _currentMission.media,
+          initialIndex: index,
         ),
       ),
     );
   }
 
-  void _showMissionDetail(Mission mission) {
-    showModalBottomSheet(
+  // 임무 완료 다이얼로그
+  void _showCompleteDialog() {
+    showDialog(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => _MissionDetailSheet(mission: mission),
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        title: const Text('임무 완료', style: AppTextStyles.heading3),
+        content: const Text(
+          '이 임무를 완료 처리하시겠습니까?',
+          style: AppTextStyles.body,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Row(
+                    children: [
+                      Icon(Icons.check_circle, color: AppColors.success),
+                      SizedBox(width: AppSpacing.sm),
+                      Text('임무가 완료 처리되었습니다'),
+                    ],
+                  ),
+                  backgroundColor: AppColors.surface,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                ),
+              );
+            },
+            child: const Text('완료', style: TextStyle(color: AppColors.success)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -429,17 +556,28 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+  }
 }
 
-/// 임무 상세 바텀시트
-class _MissionDetailSheet extends StatelessWidget {
-  final Mission mission;
+/// 미디어 목록 바텀시트
+class _MediaListSheet extends StatelessWidget {
+  final List<MediaItem> media;
+  final Function(int) onMediaTap;
 
-  const _MissionDetailSheet({required this.mission});
+  const _MediaListSheet({
+    required this.media,
+    required this.onMediaTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.6,
+      ),
       margin: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -459,92 +597,117 @@ class _MissionDetailSheet extends StatelessWidget {
             ),
           ),
 
+          // 헤더
           Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                // 제목 + 상태
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        mission.title,
-                        style: AppTextStyles.heading2,
-                      ),
-                    ),
-                    _buildStatusBadge(mission.status),
-                  ],
+                const Icon(
+                  Icons.photo_library,
+                  color: AppColors.primary,
+                  size: 24,
                 ),
-                const SizedBox(height: AppSpacing.md),
-
-                // 설명
-                Text(mission.description, style: AppTextStyles.body),
-                const SizedBox(height: AppSpacing.lg),
-
-                // 정보 카드들
-                _buildInfoRow(Icons.person, '고객', mission.clientName),
-                if (mission.clientPhone != null)
-                  _buildInfoRow(Icons.phone, '연락처', mission.clientPhone!),
-                _buildInfoRow(Icons.location_on, '주소', mission.address),
-                _buildInfoRow(
-                  Icons.calendar_today,
-                  '생성일',
-                  _formatDate(mission.createdAt),
-                ),
-                if (mission.notes != null)
-                  _buildInfoRow(Icons.note, '메모', mission.notes!),
-
-                const SizedBox(height: AppSpacing.lg),
-
-                // 닫기 버튼
-                GradientButton(
-                  text: '닫기',
-                  onPressed: () => Navigator.pop(context),
-                  isFullWidth: true,
-                ),
+                const SizedBox(width: AppSpacing.sm),
+                const Text('임무 기록', style: AppTextStyles.heading3),
+                const Spacer(),
+                StatusBadge.info('${media.length}개'),
               ],
             ),
           ),
+
+          // 미디어 그리드
+          Flexible(
+            child: media.isEmpty
+                ? _buildEmptyState()
+                : GridView.builder(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      0,
+                      AppSpacing.lg,
+                      AppSpacing.lg,
+                    ),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: AppSpacing.sm,
+                      mainAxisSpacing: AppSpacing.sm,
+                    ),
+                    itemCount: media.length,
+                    itemBuilder: (context, index) {
+                      return _buildMediaGridItem(media[index], index);
+                    },
+                  ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _buildEmptyState() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: AppColors.textMuted),
-          const SizedBox(width: AppSpacing.sm),
-          SizedBox(
-            width: 60,
-            child: Text(label, style: AppTextStyles.caption),
+          Icon(
+            Icons.photo_library_outlined,
+            size: 64,
+            color: AppColors.textMuted.withValues(alpha: 0.5),
           ),
-          Expanded(
-            child: Text(value, style: AppTextStyles.body),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            '기록된 미디어가 없습니다',
+            style: AppTextStyles.bodySecondary,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatusBadge(MissionStatus status) {
-    switch (status) {
-      case MissionStatus.pending:
-        return StatusBadge.warning(status.label);
-      case MissionStatus.inProgress:
-        return StatusBadge.info(status.label);
-      case MissionStatus.completed:
-        return StatusBadge.success(status.label);
-      case MissionStatus.cancelled:
-        return StatusBadge.danger(status.label);
-    }
-  }
+  Widget _buildMediaGridItem(MediaItem item, int index) {
+    return GestureDetector(
+      onTap: () => onMediaTap(index),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          image: item.thumbnail != null
+              ? DecorationImage(
+                  image: NetworkImage(item.thumbnail!),
+                  fit: BoxFit.cover,
+                )
+              : null,
+        ),
+        child: Stack(
+          children: [
+            // 비디오 아이콘
+            if (item.type == MediaType.video)
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.play_circle_filled,
+                    color: AppColors.textPrimary,
+                    size: 36,
+                  ),
+                ),
+              ),
 
-  String _formatDate(DateTime date) {
-    return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+            // 이미지 아이콘 (썸네일 없을 때)
+            if (item.thumbnail == null && item.type == MediaType.image)
+              const Center(
+                child: Icon(
+                  Icons.image,
+                  color: AppColors.textMuted,
+                  size: 36,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
