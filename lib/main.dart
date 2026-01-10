@@ -3,8 +3,10 @@ import 'screens/auth_screen.dart';
 import 'services/face_service.dart';
 import 'theme/app_theme.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 앱 시작 시 오래된 임시 파일 정리
+  await FaceService.cleanupOldTempFiles();
   runApp(const MyApp());
 }
 

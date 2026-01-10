@@ -19,6 +19,9 @@ class FaceService {
     ),
   );
 
+  // 임시 파일 경로 추적
+  static String? _lastTempFilePath;
+
   // 파일에서 얼굴 감지 (이미지 회전 보정 포함)
   static Future<List<Face>> detectFacesFromFile(String imagePath) async {
     try {
@@ -69,10 +72,15 @@ class FaceService {
             'contours=${face.contours.length}');
       }
 
+      // 임시 파일 정리
+      await _cleanupTempFile();
+
       return faces;
     } catch (e, stackTrace) {
       debugPrint('얼굴 감지 오류: $e');
       debugPrint('스택 트레이스: $stackTrace');
+      // 오류 발생 시에도 임시 파일 정리
+      await _cleanupTempFile();
       return [];
     }
   }
@@ -87,9 +95,53 @@ class FaceService {
     final tempFile = File('${tempDir.path}/face_temp_${DateTime.now().millisecondsSinceEpoch}.jpg');
     await tempFile.writeAsBytes(jpegBytes);
 
+    // 임시 파일 경로 저장
+    _lastTempFilePath = tempFile.path;
     debugPrint('임시 파일 생성: ${tempFile.path}');
 
     return InputImage.fromFilePath(tempFile.path);
+  }
+
+  // 마지막 임시 파일 삭제
+  static Future<void> _cleanupTempFile() async {
+    if (_lastTempFilePath != null) {
+      try {
+        final tempFile = File(_lastTempFilePath!);
+        if (await tempFile.exists()) {
+          await tempFile.delete();
+          debugPrint('임시 파일 삭제: $_lastTempFilePath');
+        }
+      } catch (e) {
+        debugPrint('임시 파일 삭제 실패: $e');
+      }
+      _lastTempFilePath = null;
+    }
+  }
+
+  // 오래된 임시 파일 일괄 정리 (앱 시작 시 호출)
+  static Future<void> cleanupOldTempFiles() async {
+    try {
+      final tempDir = Directory.systemTemp;
+      final files = tempDir.listSync();
+      int deletedCount = 0;
+
+      for (final entity in files) {
+        if (entity is File && entity.path.contains('face_temp_')) {
+          try {
+            await entity.delete();
+            deletedCount++;
+          } catch (e) {
+            debugPrint('파일 삭제 실패: ${entity.path}');
+          }
+        }
+      }
+
+      if (deletedCount > 0) {
+        debugPrint('오래된 임시 파일 $deletedCount개 삭제 완료');
+      }
+    } catch (e) {
+      debugPrint('임시 파일 정리 오류: $e');
+    }
   }
 
   // 얼굴이 등록되어 있는지 확인
