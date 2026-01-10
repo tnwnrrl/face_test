@@ -20,8 +20,23 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    // 더미 데이터: 현재 진행중인 임무 1개
-    _currentMission = Mission.dummy(index: 1);
+    // 현재 진행중인 임무
+    _currentMission = Mission(
+      id: 'mission_1',
+      title: '실종자 한유성 추적',
+      description: '''의뢰인 미팅 결과 한유성의 실종은 한형님이 원인으로 추정.
+
+한형님의 행적조사를 위해 탐문수사 진행.
+
+한형님의 행적이 의뢰인인 성하윤을 쫒는다는 점을 확인함.
+
+의뢰인 성하윤은 현재 연락 두절 상태로 마지막 미팅 장소인 의뢰인의 거주지 방문 예정.''',
+      clientName: '성하윤',
+      clientPhone: '연락두절',
+      address: '기밀사항',
+      status: MissionStatus.inProgress,
+      createdAt: DateTime.now(),
+    );
   }
 
   @override
@@ -177,16 +192,11 @@ class _MainScreenState extends State<MainScreen> {
             Divider(color: AppColors.surfaceLight.withValues(alpha: 0.5)),
             const SizedBox(height: AppSpacing.md),
 
-            // 고객 정보
-            _buildInfoRow(Icons.person, '고객', _currentMission.clientName),
+            // 의뢰인 정보
+            _buildInfoRow(Icons.person, '의뢰인', _currentMission.clientName),
             if (_currentMission.clientPhone != null)
               _buildInfoRow(Icons.phone, '연락처', _currentMission.clientPhone!),
             _buildInfoRow(Icons.location_on, '주소', _currentMission.address),
-            _buildInfoRow(
-              Icons.calendar_today,
-              '생성일',
-              _formatDate(_currentMission.createdAt),
-            ),
 
             // 메모
             if (_currentMission.notes != null) ...[
@@ -371,37 +381,29 @@ class _MainScreenState extends State<MainScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
         ),
-        title: const Text('임무 완료', style: AppTextStyles.heading3),
-        content: const Text(
-          '이 임무를 완료 처리하시겠습니까?',
-          style: AppTextStyles.body,
+        icon: const Icon(
+          Icons.warning_rounded,
+          color: AppColors.danger,
+          size: 48,
         ),
+        title: const Text(
+          '임무를 완료할 수 없습니다',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.danger,
+          ),
+        ),
+        content: const Text(
+          '현재 진행 중인 임무는 완료 처리할 수 없습니다.',
+          style: AppTextStyles.body,
+          textAlign: TextAlign.center,
+        ),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Row(
-                    children: [
-                      Icon(Icons.check_circle, color: AppColors.success),
-                      SizedBox(width: AppSpacing.sm),
-                      Text('임무가 완료 처리되었습니다'),
-                    ],
-                  ),
-                  backgroundColor: AppColors.surface,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                  ),
-                ),
-              );
-            },
-            child: const Text('완료', style: TextStyle(color: AppColors.success)),
+            child: const Text('확인'),
           ),
         ],
       ),
