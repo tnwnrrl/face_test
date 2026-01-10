@@ -1,6 +1,9 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import '../services/face_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/gradient_button.dart';
+import '../widgets/gradient_card.dart';
 import 'main_screen.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -48,7 +51,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
       _cameraController = CameraController(
         frontCamera,
-        ResolutionPreset.high, // 해상도 높임
+        ResolutionPreset.high,
         enableAudio: false,
       );
 
@@ -88,9 +91,7 @@ class _AuthScreenState extends State<AuthScreen> {
       final image = await _cameraController!.takePicture();
       debugPrint('사진 촬영 완료: ${image.path}');
 
-      // Apple Vision으로 얼굴 감지
       final faces = await FaceService.detectFacesFromFile(image.path);
-
       debugPrint('감지된 얼굴 수: ${faces.length}');
 
       if (faces.isEmpty) {
@@ -106,7 +107,6 @@ class _AuthScreenState extends State<AuthScreen> {
       debugPrint('얼굴 감지 성공! boundingBox: ${face.boundingBox}');
 
       if (_isRegistrationMode) {
-        // 등록 모드
         await FaceService.registerFace(face);
 
         if (mounted) {
@@ -124,7 +124,6 @@ class _AuthScreenState extends State<AuthScreen> {
           }
         }
       } else {
-        // 인증 모드
         final isMatch = await FaceService.compareFace(face);
         debugPrint('얼굴 비교 결과: $isMatch');
 
@@ -175,6 +174,122 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
+  /// 관리자 암호 입력 다이얼로그
+  void _showAdminPasswordDialog() {
+    final passwordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.admin_panel_settings, color: AppColors.accent),
+            SizedBox(width: AppSpacing.sm),
+            Text('관리자 인증', style: AppTextStyles.heading3),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '얼굴 등록을 위해 관리자 암호를 입력하세요.',
+              style: AppTextStyles.bodySecondary,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 24,
+                letterSpacing: 8,
+              ),
+              textAlign: TextAlign.center,
+              decoration: InputDecoration(
+                hintText: '••••',
+                hintStyle: TextStyle(
+                  color: AppColors.textMuted.withValues(alpha: 0.5),
+                  fontSize: 24,
+                  letterSpacing: 8,
+                ),
+                counterText: '',
+                filled: true,
+                fillColor: AppColors.surfaceLight,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                ),
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (passwordController.text == '8009') {
+                Navigator.pop(context);
+                _enterRegistrationMode();
+              } else {
+                Navigator.pop(context);
+                _showAdminOnlyWarning();
+              }
+            },
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 관리자 전용 경고 표시
+  void _showAdminOnlyWarning() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.warning, color: AppColors.accent),
+            SizedBox(width: AppSpacing.sm),
+            Text('관리자만 등록 가능합니다'),
+          ],
+        ),
+        backgroundColor: AppColors.surface,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// 등록 모드로 전환
+  void _enterRegistrationMode() async {
+    await FaceService.clearRegisteredFace();
+    if (!mounted) return;
+    setState(() {
+      _isRegistrationMode = true;
+      _statusMessage = '버튼을 눌러 얼굴을 등록하세요';
+      _matchAttempts = 0;
+      _faceDetectedCount = 0;
+    });
+  }
+
   @override
   void dispose() {
     _cameraController?.dispose();
@@ -184,102 +299,175 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 상단 타이틀
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                _isRegistrationMode ? '얼굴 등록' : '얼굴 인증',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-
-            // 카메라 프리뷰
-            Expanded(
-              child: Center(
-                child: _isInitialized && _cameraController != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: AspectRatio(
-                          aspectRatio: 3 / 4,
-                          child: CameraPreview(_cameraController!),
-                        ),
-                      )
-                    : const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: AppColors.backgroundGradient,
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // 상단 헤더
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                      child: Icon(
+                        _isRegistrationMode ? Icons.person_add : Icons.lock,
+                        color: AppColors.primary,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          CircularProgressIndicator(color: Colors.white),
-                          SizedBox(height: 16),
                           Text(
-                            '카메라 초기화 중...',
-                            style: TextStyle(color: Colors.white),
+                            _isRegistrationMode ? '얼굴 등록' : '얼굴 인증',
+                            style: AppTextStyles.heading2,
+                          ),
+                          Text(
+                            _isRegistrationMode
+                                ? '새 얼굴을 등록합니다'
+                                : '등록된 얼굴로 인증합니다',
+                            style: AppTextStyles.caption,
                           ),
                         ],
                       ),
-              ),
-            ),
-
-            // 상태 메시지
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                _statusMessage,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
+                    ),
+                    // 우상단 얼굴 등록 버튼
+                    GestureDetector(
+                      onTap: _showAdminPasswordDialog,
+                      child: Container(
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                        ),
+                        child: const Icon(
+                          Icons.person_add_alt_1,
+                          color: AppColors.accent,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
 
-            // 디버그 정보
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                '감지 횟수: $_faceDetectedCount | 시도: $_matchAttempts',
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
-              ),
-            ),
-
-            // 캡처 버튼
-            Padding(
-              padding: const EdgeInsets.only(bottom: 40, top: 10),
-              child: ElevatedButton.icon(
-                onPressed: _isProcessing || !_isInitialized ? null : _captureAndProcess,
-                icon: Icon(_isRegistrationMode ? Icons.camera_alt : Icons.face),
-                label: Text(_isRegistrationMode ? '얼굴 등록' : '얼굴 인증'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 40,
-                    vertical: 15,
+              // 카메라 프리뷰
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                  child: GradientCard(
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      child: _isInitialized && _cameraController != null
+                          ? AspectRatio(
+                              aspectRatio: 3 / 4,
+                              child: CameraPreview(_cameraController!),
+                            )
+                          : Container(
+                              color: AppColors.surface,
+                              child: const Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    CircularProgressIndicator(
+                                      color: AppColors.primary,
+                                    ),
+                                    SizedBox(height: AppSpacing.md),
+                                    Text(
+                                      '카메라 초기화 중...',
+                                      style: AppTextStyles.bodySecondary,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                    ),
                   ),
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.grey,
                 ),
               ),
-            ),
 
-            // 재등록 버튼 (인증 실패 시)
-            if (!_isRegistrationMode && _matchAttempts > 2)
+              // 상태 메시지
               Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: TextButton(
-                  onPressed: _resetFace,
-                  child: const Text(
-                    '얼굴 다시 등록하기',
-                    style: TextStyle(color: Colors.red),
-                  ),
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  children: [
+                    // 상태 뱃지
+                    if (_statusMessage.contains('✓'))
+                      StatusBadge.success(_statusMessage.replaceAll('✓ ', ''))
+                    else if (_statusMessage.contains('오류') ||
+                        _statusMessage.contains('일치하지'))
+                      StatusBadge.danger(_statusMessage.split('\n').first)
+                    else if (_statusMessage.isNotEmpty)
+                      StatusBadge.info(_statusMessage.split('\n').first),
+
+                    if (_statusMessage.contains('\n')) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        _statusMessage.split('\n').last,
+                        style: AppTextStyles.caption,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+
+                    const SizedBox(height: AppSpacing.sm),
+
+                    // 디버그 정보
+                    Text(
+                      '감지: $_faceDetectedCount회 | 시도: $_matchAttempts회',
+                      style: AppTextStyles.label,
+                    ),
+                  ],
                 ),
               ),
-          ],
+
+              // 버튼 영역
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  0,
+                  AppSpacing.lg,
+                  AppSpacing.xl,
+                ),
+                child: Column(
+                  children: [
+                    // 메인 버튼
+                    GradientButton(
+                      text: _isRegistrationMode ? '얼굴 등록' : '얼굴 인증',
+                      icon: _isRegistrationMode ? Icons.camera_alt : Icons.face,
+                      onPressed: _isProcessing || !_isInitialized
+                          ? null
+                          : _captureAndProcess,
+                      isLoading: _isProcessing,
+                      isFullWidth: true,
+                    ),
+
+                    // 재등록 버튼
+                    if (!_isRegistrationMode && _matchAttempts > 2) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      OutlineButton(
+                        text: '얼굴 다시 등록하기',
+                        icon: Icons.refresh,
+                        color: AppColors.danger,
+                        onPressed: _resetFace,
+                        isFullWidth: true,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

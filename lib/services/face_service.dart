@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image/image.dart' as img;
 
 class FaceService {
   static const String _faceDataKey = 'registered_face_data';
@@ -30,12 +31,36 @@ class FaceService {
         return [];
       }
 
-      // InputImage 생성
-      final inputImage = InputImage.fromFilePath(imagePath);
+      // image 패키지로 이미지 로드 및 EXIF 방향 보정
+      final bytes = await file.readAsBytes();
+      debugPrint('이미지 바이트 읽기 완료: ${bytes.length} bytes');
+
+      final originalImage = img.decodeImage(bytes);
+      if (originalImage == null) {
+        debugPrint('이미지 디코딩 실패');
+        return [];
+      }
+      debugPrint('원본 이미지 크기: ${originalImage.width}x${originalImage.height}');
+
+      // EXIF 방향 정보를 적용하여 이미지 회전 (bakeOrientation)
+      final orientedImage = img.bakeOrientation(originalImage);
+      debugPrint('방향 보정 후 크기: ${orientedImage.width}x${orientedImage.height}');
+
+      // NV21 또는 BGRA8888 형식으로 변환하여 InputImage 생성
+      // iOS에서는 BGRA8888 사용
+      final inputImage = await _createInputImageFromImage(orientedImage);
 
       debugPrint('ML Kit 얼굴 감지 시작...');
-      final faces = await _faceDetector.processImage(inputImage);
+      var faces = await _faceDetector.processImage(inputImage);
       debugPrint('감지된 얼굴 수: ${faces.length}');
+
+      // 감지 실패시 원본으로 재시도
+      if (faces.isEmpty) {
+        debugPrint('원본 파일로 재시도...');
+        final inputImageFromPath = InputImage.fromFilePath(imagePath);
+        faces = await _faceDetector.processImage(inputImageFromPath);
+        debugPrint('감지된 얼굴 수 (fromFilePath): ${faces.length}');
+      }
 
       for (var i = 0; i < faces.length; i++) {
         final face = faces[i];
@@ -50,6 +75,21 @@ class FaceService {
       debugPrint('스택 트레이스: $stackTrace');
       return [];
     }
+  }
+
+  // image 패키지의 Image를 ML Kit InputImage로 변환
+  static Future<InputImage> _createInputImageFromImage(img.Image image) async {
+    // JPEG로 인코딩하여 임시 파일로 저장 후 InputImage 생성
+    final jpegBytes = img.encodeJpg(image, quality: 95);
+
+    // 임시 파일 생성
+    final tempDir = Directory.systemTemp;
+    final tempFile = File('${tempDir.path}/face_temp_${DateTime.now().millisecondsSinceEpoch}.jpg');
+    await tempFile.writeAsBytes(jpegBytes);
+
+    debugPrint('임시 파일 생성: ${tempFile.path}');
+
+    return InputImage.fromFilePath(tempFile.path);
   }
 
   // 얼굴이 등록되어 있는지 확인
