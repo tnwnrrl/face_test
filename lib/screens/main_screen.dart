@@ -36,6 +36,28 @@ class _MainScreenState extends State<MainScreen> {
       address: '기밀사항',
       status: MissionStatus.inProgress,
       createdAt: DateTime.now(),
+      media: [
+        MediaItem.asset(
+          id: 'media_1',
+          assetPath: 'assets/media/image_01.jpg',
+          type: MediaType.image,
+        ),
+        MediaItem.asset(
+          id: 'media_2',
+          assetPath: 'assets/media/image_02.jpg',
+          type: MediaType.image,
+        ),
+        MediaItem.asset(
+          id: 'media_3',
+          assetPath: 'assets/media/image_03.jpg',
+          type: MediaType.image,
+        ),
+        MediaItem.asset(
+          id: 'media_4',
+          assetPath: 'assets/media/video_01.mp4',
+          type: MediaType.video,
+        ),
+      ],
     );
   }
 
@@ -301,15 +323,25 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildMediaThumbnail(MediaItem media) {
+    // 이미지 프로바이더 결정
+    ImageProvider? imageProvider;
+    if (media.type == MediaType.image) {
+      if (media.isAsset) {
+        imageProvider = AssetImage(media.url);
+      } else if (media.thumbnail != null) {
+        imageProvider = NetworkImage(media.thumbnail!);
+      }
+    }
+
     return Container(
       width: 80,
       height: 80,
       decoration: BoxDecoration(
         color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(AppRadius.md),
-        image: media.thumbnail != null
+        image: imageProvider != null
             ? DecorationImage(
-                image: NetworkImage(media.thumbnail!),
+                image: imageProvider,
                 fit: BoxFit.cover,
               )
             : null,
@@ -553,15 +585,23 @@ class _MediaListSheet extends StatelessWidget {
   }
 
   Widget _buildMediaGridItem(MediaItem item, int index) {
+    // 이미지 프로바이더 결정
+    ImageProvider? imageProvider;
+    if (item.type == MediaType.image && item.isAsset) {
+      imageProvider = AssetImage(item.url);
+    } else if (item.thumbnail != null) {
+      imageProvider = NetworkImage(item.thumbnail!);
+    }
+
     return GestureDetector(
       onTap: () => onMediaTap(index),
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(AppRadius.md),
-          image: item.thumbnail != null
+          image: imageProvider != null
               ? DecorationImage(
-                  image: NetworkImage(item.thumbnail!),
+                  image: imageProvider,
                   fit: BoxFit.cover,
                 )
               : null,
@@ -581,16 +621,6 @@ class _MediaListSheet extends StatelessWidget {
                     color: AppColors.textPrimary,
                     size: 36,
                   ),
-                ),
-              ),
-
-            // 이미지 아이콘 (썸네일 없을 때)
-            if (item.thumbnail == null && item.type == MediaType.image)
-              const Center(
-                child: Icon(
-                  Icons.image,
-                  color: AppColors.textMuted,
-                  size: 36,
                 ),
               ),
           ],

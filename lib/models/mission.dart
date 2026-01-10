@@ -22,6 +22,7 @@ class MediaItem {
   final MediaType type;
   final String? thumbnail;
   final DateTime createdAt;
+  final bool isAsset; // 로컬 asset 여부
 
   const MediaItem({
     required this.id,
@@ -29,7 +30,25 @@ class MediaItem {
     required this.type,
     this.thumbnail,
     required this.createdAt,
+    this.isAsset = false,
   });
+
+  // 로컬 asset 미디어 생성
+  factory MediaItem.asset({
+    required String id,
+    required String assetPath,
+    required MediaType type,
+    String? thumbnailPath,
+  }) {
+    return MediaItem(
+      id: id,
+      url: assetPath,
+      type: type,
+      thumbnail: thumbnailPath,
+      createdAt: DateTime.now(),
+      isAsset: true,
+    );
+  }
 
   // 더미 데이터 생성
   factory MediaItem.dummy({

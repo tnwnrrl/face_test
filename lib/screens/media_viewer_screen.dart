@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 import '../models/mission.dart';
 import '../theme/app_theme.dart';
 
@@ -19,17 +20,37 @@ class MediaViewerScreen extends StatefulWidget {
 class _MediaViewerScreenState extends State<MediaViewerScreen> {
   late PageController _pageController;
   late int _currentIndex;
+  final Map<int, VideoPlayerController> _videoControllers = {};
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
+    _initVideoControllers();
+  }
+
+  void _initVideoControllers() {
+    for (int i = 0; i < widget.media.length; i++) {
+      final media = widget.media[i];
+      if (media.type == MediaType.video) {
+        final controller = media.isAsset
+            ? VideoPlayerController.asset(media.url)
+            : VideoPlayerController.networkUrl(Uri.parse(media.url));
+        controller.initialize().then((_) {
+          if (mounted) setState(() {});
+        });
+        _videoControllers[i] = controller;
+      }
+    }
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    for (final controller in _videoControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -44,13 +65,15 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
             controller: _pageController,
             itemCount: widget.media.length,
             onPageChanged: (index) {
+              // 이전 비디오 일시정지
+              _videoControllers[_currentIndex]?.pause();
               setState(() {
                 _currentIndex = index;
               });
             },
             itemBuilder: (context, index) {
               final media = widget.media[index];
-              return _buildMediaItem(media);
+              return _buildMediaItem(media, index);
             },
           ),
 
@@ -119,9 +142,9 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     );
   }
 
-  Widget _buildMediaItem(MediaItem media) {
+  Widget _buildMediaItem(MediaItem media, int index) {
     if (media.type == MediaType.video) {
-      return _buildVideoPlayer(media);
+      return _buildVideoPlayer(media, index);
     } else {
       return _buildImageViewer(media);
     }
@@ -132,100 +155,123 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
       minScale: 0.5,
       maxScale: 4.0,
       child: Center(
-        child: Image.network(
-          media.url,
-          fit: BoxFit.contain,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Center(
-              child: CircularProgressIndicator(
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded /
-                        loadingProgress.expectedTotalBytes!
-                    : null,
-                color: AppColors.primary,
+        child: media.isAsset
+            ? Image.asset(
+                media.url,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildErrorWidget();
+                },
+              )
+            : Image.network(
+                media.url,
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
+                          : null,
+                      color: AppColors.primary,
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildErrorWidget();
+                },
               ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.broken_image,
-                    size: 64,
-                    color: AppColors.textMuted,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    '이미지를 불러올 수 없습니다',
-                    style: AppTextStyles.bodySecondary,
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
       ),
     );
   }
 
-  Widget _buildVideoPlayer(MediaItem media) {
-    // 간단한 비디오 플레이스홀더 (실제 구현시 video_player 패키지 사용)
+  Widget _buildVideoPlayer(MediaItem media, int index) {
+    final controller = _videoControllers[index];
+
+    if (controller == null || !controller.value.isInitialized) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // 썸네일
-          if (media.thumbnail != null)
-            Container(
-              width: 300,
-              height: 200,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-                image: DecorationImage(
-                  image: NetworkImage(media.thumbnail!),
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-          const SizedBox(height: AppSpacing.lg),
-
-          // 재생 버튼
-          GestureDetector(
-            onTap: () {
-              // TODO: 비디오 재생 구현
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('비디오 재생 기능 준비중입니다'),
-                  backgroundColor: AppColors.surface,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
+          // 비디오 플레이어
+          AspectRatio(
+            aspectRatio: controller.value.aspectRatio,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                VideoPlayer(controller),
+                // 재생/일시정지 오버레이
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (controller.value.isPlaying) {
+                        controller.pause();
+                      } else {
+                        controller.play();
+                      }
+                    });
+                  },
+                  child: AnimatedOpacity(
+                    opacity: controller.value.isPlaying ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        shape: BoxShape.circle,
+                        boxShadow: AppShadows.glow,
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow,
+                        size: 48,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
                   ),
                 ),
-              );
-            },
-            child: Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
-                shape: BoxShape.circle,
-                boxShadow: AppShadows.glow,
-              ),
-              child: const Icon(
-                Icons.play_arrow,
-                size: 48,
-                color: AppColors.textPrimary,
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          // 프로그레스 바
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+            child: VideoProgressIndicator(
+              controller,
+              allowScrubbing: true,
+              colors: const VideoProgressColors(
+                playedColor: AppColors.primary,
+                bufferedColor: AppColors.surfaceLight,
+                backgroundColor: AppColors.surface,
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildErrorWidget() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.broken_image,
+            size: 64,
+            color: AppColors.textMuted,
+          ),
+          const SizedBox(height: AppSpacing.md),
           Text(
-            '비디오',
+            '미디어를 불러올 수 없습니다',
             style: AppTextStyles.bodySecondary,
           ),
         ],
