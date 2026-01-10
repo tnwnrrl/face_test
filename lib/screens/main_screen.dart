@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/mission.dart';
-import '../services/face_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_card.dart';
 import '../widgets/gradient_button.dart';
@@ -37,14 +36,6 @@ class _MainScreenState extends State<MainScreen> {
             children: [
               // 상단 헤더
               _buildHeader(),
-
-              // 직원 정보 카드
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                child: _buildUserCard(),
-              ),
-
-              const SizedBox(height: AppSpacing.lg),
 
               // 현재 임무 타이틀
               Padding(
@@ -155,73 +146,6 @@ class _MainScreenState extends State<MainScreen> {
             icon: const Icon(
               Icons.logout,
               color: AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUserCard() {
-    return GradientCard(
-      gradient: AppColors.primaryGradient,
-      child: Row(
-        children: [
-          // 프로필 아바타
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.person,
-              color: AppColors.textPrimary,
-              size: 32,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          // 정보
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Text(
-                      '인증된 직원',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    SizedBox(width: AppSpacing.sm),
-                    Icon(
-                      Icons.verified,
-                      color: AppColors.accent,
-                      size: 18,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  '얼굴 인증 완료',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textPrimary.withValues(alpha: 0.8),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // 재등록 버튼
-          IconButton(
-            onPressed: () => _showResetDialog(context),
-            icon: Icon(
-              Icons.refresh,
-              color: AppColors.textPrimary.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -513,44 +437,6 @@ class _MainScreenState extends State<MainScreen> {
               );
             },
             child: const Text('확인'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showResetDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-        ),
-        title: const Text('얼굴 재등록', style: AppTextStyles.heading3),
-        content: const Text(
-          '기존 등록된 얼굴을 삭제하고 새로 등록하시겠습니까?',
-          style: AppTextStyles.body,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () async {
-              await FaceService.clearRegisteredFace();
-              if (context.mounted) {
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AuthScreen(isRegistered: false),
-                  ),
-                );
-              }
-            },
-            child: const Text('확인', style: TextStyle(color: AppColors.danger)),
           ),
         ],
       ),
