@@ -39,21 +39,6 @@ class _MainScreenState extends State<MainScreen> {
       media: [
         MediaItem.asset(
           id: 'media_1',
-          assetPath: 'assets/media/image_01.jpg',
-          type: MediaType.image,
-        ),
-        MediaItem.asset(
-          id: 'media_2',
-          assetPath: 'assets/media/image_02.jpg',
-          type: MediaType.image,
-        ),
-        MediaItem.asset(
-          id: 'media_3',
-          assetPath: 'assets/media/image_03.jpg',
-          type: MediaType.image,
-        ),
-        MediaItem.asset(
-          id: 'media_4',
           assetPath: 'assets/media/113244.mp4',
           type: MediaType.video,
         ),
